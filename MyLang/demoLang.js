@@ -43,7 +43,6 @@ function lexer(input) {
         }
 
         // 4. Operators (Updated to include 'is' as a comparison operator)
-        // We'll treat 'is' as a special operator for comparison (e.g., x is 10)
         if ('=+-*/'.includes(char)) {
             tokens.push({ type: 'OPERATOR', value: char });
             cursor++;
@@ -70,32 +69,56 @@ function lexer(input) {
     return tokens;
 }
 
- /**
+// ----------------------------------------------------------------------------------
+
+/**
  * Parser: Converts a list of tokens into an Abstract Syntax Tree (AST).
+ * FIX: Now consumes the trailing semicolon after Variable and Debug statements.
  */
 function parse(tokens) {
     const ast = { type: 'Program', body: [] };
 
+    // Helper function to enforce punctuation and consume it
+    function expectPunctuation(expectedValue) {
+        const token = tokens.shift();
+        if (!token || token.type !== 'PUNCTUATION' || token.value !== expectedValue) {
+            throw new Error(`Expected punctuation '${expectedValue}' after statement, got: ${JSON.stringify(token)}`);
+        }
+    }
+
     // Function to parse a single statement
     function parseStatement() {
-        const token = tokens.shift();
+        const token = tokens[0]; // Peek at the next token
 
-        // Variable Declaration: 'ye x = ...'
-        if (token && token.type === 'KEYWORD' && token.value === 'ye') {
-            return parseVariableDeclaration();
+        if (!token) return null; // End of file
+
+        // FIX: Allow and skip standalone semicolons (empty statements)
+        if (token.type === 'PUNCTUATION' && token.value === ';') {
+            tokens.shift(); // Consume the semicolon
+            return null; 
+        }
+
+        const statementToken = tokens.shift(); // Consume the actual statement start token
+
+        // Variable Declaration: 'ye x = ...;'
+        if (statementToken.type === 'KEYWORD' && statementToken.value === 'ye') {
+            const node = parseVariableDeclaration();
+            expectPunctuation(';'); // FIX: Consume the required trailing semicolon
+            return node;
         } 
         // Conditional Statement: 'if ... { ... }'
-        else if (token && token.type === 'KEYWORD' && token.value === 'if') {
+        else if (statementToken.type === 'KEYWORD' && statementToken.value === 'if') {
             return parseIfStatement();
         } 
-        // Debug Statement: 'de x' (for evaluation)
-        else if (token && token.type === 'KEYWORD' && token.value === 'de') {
-            return parseDebugStatement();
+        // Debug Statement: 'de x;' (for evaluation)
+        else if (statementToken.type === 'KEYWORD' && statementToken.value === 'de') {
+            const node = parseDebugStatement();
+            expectPunctuation(';'); // FIX: Consume the required trailing semicolon
+            return node;
         } 
-        else if (token) {
-            throw new Error(`Unexpected token at start of statement: ${JSON.stringify(token)}`);
+        else {
+            throw new Error(`Unexpected token at start of statement: ${JSON.stringify(statementToken)}`);
         }
-        return null;
     }
 
     // Parses 'ye variable = value;'
@@ -158,6 +181,7 @@ function parse(tokens) {
     
     // Parses 'if condition { body }'
     function parseIfStatement() {
+        // Condition: (left expression) (operator 'is') (right expression)
         const left = parseExpression(); // e.g., 'x'
         const operator = tokens.shift(); // e.g., 'is'
         
@@ -180,6 +204,7 @@ function parse(tokens) {
 
         // Parse the body of the if statement
         const body = [];
+        // The body uses parseStatement() repeatedly until '}' is found
         while (tokens.length > 0 && tokens[0].value !== '}') {
             const statement = parseStatement();
             if (statement) body.push(statement);
@@ -215,7 +240,7 @@ function parse(tokens) {
     return ast;
 }
 
-
+// ----------------------------------------------------------------------------------
 
 /**
  * Evaluator (Runner): Executes the AST by traversing it.
@@ -243,12 +268,13 @@ function evaluate(ast) {
             case 'IfStatement':
                 const conditionResult = walk(node.condition);
                 if (conditionResult) {
+                    // Evaluate the statements in the 'consequent' block
                     return node.consequent.map(walk);
                 }
                 return null;
 
             case 'BinaryExpression':
-                // For comparison (e.g., 'is') or arithmetic (e.g., '+')
+                // For comparison ('is') or arithmetic ('+-*/')
                 const left = walk(node.left);
                 const right = walk(node.right);
 
@@ -281,7 +307,7 @@ function evaluate(ast) {
     return walk(ast);
 }
 
-
+// ----------------------------------------------------------------------------------
 
 /**
  * Compiler: The main entry point.
@@ -300,7 +326,7 @@ function compiler(input) {
     return result;
 }
 
-// Example code with a new 'if' statement
+// Example code with variable declaration, arithmetic, if statement, and debug
 const code = `
 ye x = 10;
 ye y = 20;
@@ -308,6 +334,10 @@ ye y = 20;
 if x is 10 {
     ye result = x + y;
     de result;
+}
+
+if y is 10 {
+    ye hidden = 999;
 }
 
 de x;
