@@ -1,0 +1,25 @@
+{
+  "name": "streamyard-clone",
+  "version": "1.0.0",
+  "description": "Live Streaming RTMP Application",
+  "homepage": "https://github.com/Ayush-silicon/UnderTheHood-Projects#readme",
+  "bugs": {
+    "url": "https://github.com/Ayush-silicon/UnderTheHood-Projects/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ayush-silicon/UnderTheHood-Projects.git"
+  },
+  "license": "ISC",
+  "author": "Ayush Singh",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "nodemon": "^3.1.10",
+    "socket.io": "^4.8.1"
+  }
+}
